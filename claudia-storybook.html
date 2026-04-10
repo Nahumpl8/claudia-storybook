@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Claudia — Quien lo Supo Antes que Nadie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Lora', serif; }
+
+:root {
+  --bg-dark: #1a0e05;
+  --bg-medium: #2d1a0a;
+  --cream: #fdf6e3;
+  --gold: #f5c842;
+  --gold-dim: #c9a84c;
+  --gold-bright: #ffe066;
+  --pink: #f0a0b0;
+  --lavender: #c4b0e0;
+}
+
+/* ============================================================
+   LOADING SCREEN
+   ============================================================ */
+#loading {
+  position: fixed; inset: 0; z-index: 10000;
+  background: var(--bg-dark);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.8s ease;
+}
+#loading.hidden { opacity: 0; pointer-events: none; }
+.loading-book {
+  width: 60px; height: 50px; position: relative;
+}
+.loading-book .book-page {
+  position: absolute; width: 30px; height: 50px;
+  background: var(--cream); border-radius: 0 4px 4px 0;
+  right: 0; transform-origin: left center;
+  animation: flipPage 1.2s ease-in-out infinite;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+}
+.loading-book .book-spine {
+  position: absolute; left: 0; width: 30px; height: 50px;
+  background: var(--bg-medium); border-radius: 4px 0 0 4px;
+  box-shadow: inset -3px 0 8px rgba(0,0,0,0.4);
+}
+@keyframes flipPage {
+  0%, 100% { transform: rotateY(0deg); }
+  50% { transform: rotateY(-180deg); }
+}
+#loading p {
+  color: var(--gold-dim); font-family: 'Playfair Display', serif;
+  margin-top: 24px; font-size: 14px; letter-spacing: 2px;
+}
+
+/* ============================================================
+   THREE.JS CANVAS
+   ============================================================ */
+#three-canvas {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+}
+
+/* ============================================================
+   BOOK CONTAINER
+   ============================================================ */
+#book {
+  position: fixed; inset: 0; z-index: 1;
+  perspective: 1500px;
+}
+
+/* ============================================================
+   BOOK SPINE
+   ============================================================ */
+#book-spine {
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: 40px; z-index: 100;
+  background: linear-gradient(90deg, #0d0704 0%, #1a0e05 40%, rgba(26,14,5,0) 100%);
+  pointer-events: none;
+}
+#book-spine .spine-text {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  color: var(--gold-dim); font-family: 'Playfair Display', serif;
+  font-size: 11px; letter-spacing: 3px; white-space: nowrap;
+  opacity: 0.6; text-transform: uppercase;
+}
+
+/* ============================================================
+   PAGES
+   ============================================================ */
+.page {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 60px;
+  opacity: 0; visibility: hidden;
+  transform-origin: left center;
+  will-change: transform, opacity;
+  overflow: hidden;
+}
+.page.active { opacity: 1; visibility: visible; }
+
+/* Parchment texture */
+.page::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(253,246,227,0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(245,200,66,0.02) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 80%, rgba(253,246,227,0.02) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Vignette overlay */
+.page::after {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  box-shadow: inset 0 0 150px rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+
+.page > * { position: relative; z-index: 2; }
+
+/* Page backgrounds */
+.page { background: var(--bg-dark); }
+
+/* Golden ornamental border */
+.page-border {
+  position: absolute; inset: 15px; z-index: 2;
+  border: 1px solid rgba(245,200,66,0.2);
+  pointer-events: none;
+}
+.page-border::before, .page-border::after {
+  content: ''; position: absolute; width: 20px; height: 20px;
+  border-color: var(--gold-dim); border-style: solid;
+}
+.page-border::before {
+  top: -1px; left: -1px;
+  border-width: 2px 0 0 2px;
+}
+.page-border::after {
+  bottom: -1px; right: -1px;
+  border-width: 0 2px 2px 0;
+}
+.page-border .corner-tr, .page-border .corner-bl {
+  position: absolute; width: 20px; height: 20px;
+  border-color: var(--gold-dim); border-style: solid;
+}
+.page-border .corner-tr {
+  top: -1px; right: -1px;
+  border-width: 2px 2px 0 0;
+}
+.page-border .corner-bl {
+  bottom: -1px; left: -1px;
+  border-width: 0 0 2px 2px;
+}
+
+/* Ornamental diamond accents */
+.ornament-top, .ornament-bottom {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 60px; height: 12px; z-index: 3; pointer-events: none;
+}
+.ornament-top { top: 20px; }
+.ornament-bottom { bottom: 20px; }
+.ornament-top svg, .ornament-bottom svg { width: 100%; height: 100%; }
+
+/* Page-curl effect */
+.page-curl {
+  position: absolute; bottom: 0; right: 0;
+  width: 60px; height: 60px; z-index: 5;
+  overflow: hidden; cursor: pointer;
+  opacity: 0; transition: opacity 0.3s;
+}
+.page:hover .page-curl { opacity: 1; }
+.page-curl::before {
+  content: ''; position: absolute; bottom: 0; right: 0;
+  width: 0; height: 0;
+  border-style: solid;
+  border-width: 0 0 60px 60px;
+  border-color: transparent transparent var(--bg-medium) transparent;
+  transition: border-width 0.3s ease;
+}
+.page:hover .page-curl::before {
+  border-width: 0 0 70px 70px;
+}
+.page-curl::after {
+  content: ''; position: absolute; bottom: 0; right: 0;
+  width: 50px; height: 50px;
+  background: linear-gradient(135deg, transparent 40%, rgba(245,200,66,0.1) 100%);
+  transform: rotate(0deg);
+}
+
+/* Page number */
+.page-number {
+  position: absolute; bottom: 28px; right: 40px;
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 12px; color: rgba(245,200,66,0.4);
+  z-index: 3;
+}
+
+/* Footer dove */
+.footer-dove {
+  position: absolute; bottom: 25px; left: 50%;
+  transform: translateX(-50%); z-index: 3;
+  opacity: 0.3;
+}
+.footer-dove svg { width: 20px; height: 20px; }
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+.page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(24px, 5vw, 42px);
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 24px;
+  line-height: 1.3;
+}
+.page-text {
+  font-family: 'Lora', serif;
+  font-size: clamp(14px, 2.5vw, 18px);
+  color: var(--cream);
+  text-align: center;
+  line-height: 1.8;
+  max-width: 600px;
+  opacity: 0.9;
+}
+.page-text-line { display: inline; }
+
+/* ============================================================
+   COVER PAGE
+   ============================================================ */
+#cover .cover-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 7vw, 64px);
+  color: var(--gold);
+  text-align: center;
+  line-height: 1.2;
+  text-shadow: 0 0 40px rgba(245,200,66,0.3);
+}
+#cover .cover-title .char {
+  display: inline-block; opacity: 0;
+}
+#cover .cover-subtitle {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: clamp(14px, 3vw, 22px);
+  color: var(--cream); opacity: 0;
+  margin-top: 16px; text-align: center;
+}
+.open-btn {
+  margin-top: 40px; padding: 14px 40px;
+  background: transparent; border: 1px solid var(--gold);
+  color: var(--gold); font-family: 'Playfair Display', serif;
+  font-size: 16px; letter-spacing: 2px; cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: background 0.3s, color 0.3s;
+  opacity: 0;
+}
+.open-btn:hover {
+  background: var(--gold); color: var(--bg-dark);
+}
+.open-btn .ripple {
+  position: absolute; border-radius: 50%;
+  background: rgba(245,200,66,0.3);
+  transform: scale(0); animation: rippleAnim 0.6s linear;
+  pointer-events: none;
+}
+@keyframes rippleAnim {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* Cover dove */
+#cover-dove {
+  position: absolute; top: 15%; left: -60px;
+  z-index: 5; opacity: 0;
+}
+#cover-dove svg { width: 50px; height: 50px; }
+
+/* Cover sparkles (cursor follower) */
+.cursor-sparkle {
+  position: fixed; width: 6px; height: 6px;
+  background: var(--gold); border-radius: 50;
+  pointer-events: none; z-index: 1000;
+  box-shadow: 0 0 6px var(--gold);
+}
+
+/* ============================================================
+   PAGE 1 — Compass
+   ============================================================ */
+#page1 .compass-container {
+  width: clamp(100px, 20vw, 160px);
+  height: clamp(100px, 20vw, 160px);
+  margin: 20px 0;
+}
+.firefly {
+  position: absolute; width: 4px; height: 4px;
+  background: var(--gold-bright); border-radius: 50%;
+  box-shadow: 0 0 8px var(--gold); pointer-events: none;
+  opacity: 0;
+}
+
+/* ============================================================
+   PAGE 2 — Angel
+   ============================================================ */
+#page2 .angel-container {
+  position: relative;
+  width: clamp(120px, 25vw, 200px);
+  height: clamp(150px, 30vw, 250px);
+  margin: 20px 0;
+}
+.angel-rays {
+  position: absolute; inset: -40%; z-index: 0;
+  opacity: 0;
+}
+.angel-rays .ray {
+  position: absolute; top: 50%; left: 50%;
+  width: 3px; height: 120%;
+  background: linear-gradient(to bottom, rgba(245,200,66,0.15), transparent);
+  transform-origin: center top;
+}
+.angel-sparkle {
+  position: absolute; width: 4px; height: 4px;
+  background: var(--gold-bright); border-radius: 50%;
+  box-shadow: 0 0 8px var(--gold);
+  pointer-events: none; opacity: 0;
+}
+
+/* ============================================================
+   PAGE 3 — World Map & Cards
+   ============================================================ */
+#page3 .map-container {
+  width: clamp(250px, 60vw, 500px);
+  height: clamp(130px, 25vw, 250px);
+  position: relative; margin: 15px 0;
+}
+#page3 .plane-svg {
+  position: absolute; top: 0; left: 0;
+  width: 24px; height: 24px; opacity: 0;
+}
+.destination-cards {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  justify-content: center; margin-top: 20px;
+}
+.dest-card {
+  width: 150px; padding: 16px;
+  background: rgba(45,26,10,0.8);
+  border: 1px solid rgba(245,200,66,0.3);
+  border-radius: 8px;
+  text-align: center; cursor: default;
+  perspective: 800px;
+  opacity: 0; transform: rotateY(90deg);
+  transition: box-shadow 0.3s;
+}
+.dest-card:hover {
+  box-shadow: 0 0 20px rgba(245,200,66,0.2);
+}
+.dest-card .flag { font-size: 28px; }
+.dest-card .city {
+  font-family: 'Playfair Display', serif;
+  color: var(--gold); font-size: 16px;
+  margin: 6px 0;
+}
+.dest-card .item {
+  font-size: 13px; color: var(--cream); opacity: 0.8;
+}
+
+/* ============================================================
+   PAGE 4 — Treasure Chest
+   ============================================================ */
+#page4 .chest-container {
+  position: relative; width: clamp(120px, 25vw, 180px);
+  height: clamp(100px, 20vw, 150px);
+  margin: 20px 0; cursor: pointer;
+}
+.chest-light {
+  position: absolute; top: -50px; left: 50%;
+  transform: translateX(-50%);
+  width: 100px; height: 200px;
+  background: linear-gradient(to top, rgba(245,200,66,0.3), transparent);
+  clip-path: polygon(30% 100%, 70% 100%, 100% 0%, 0% 0%);
+  opacity: 0; pointer-events: none;
+}
+.floating-item {
+  position: absolute; font-size: 28px;
+  opacity: 0; pointer-events: none;
+}
+
+/* ============================================================
+   PAGE 5 — Sunrise
+   ============================================================ */
+#page5 {
+  background: #050510;
+  transition: background 2s;
+}
+#page5 .star {
+  position: absolute; width: 8px; height: 8px;
+  background: var(--gold-bright); border-radius: 50%;
+  box-shadow: 0 0 20px var(--gold), 0 0 40px var(--gold);
+  top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+}
+#page5 .typewriter-text {
+  font-family: 'Lora', serif;
+  font-size: clamp(15px, 2.8vw, 20px);
+  color: var(--cream); text-align: center;
+  line-height: 2; max-width: 500px;
+}
+#page5 .typewriter-text .char { opacity: 0; }
+#page5 .heartbeat { display: inline-block; }
+#page5 .next-hint {
+  margin-top: 30px; font-family: 'Lora', serif;
+  font-style: italic; font-size: 14px;
+  color: var(--gold); opacity: 0;
+}
+#page5 .next-hint .arrow {
+  display: inline-block; margin-left: 8px;
+}
+
+/* ============================================================
+   PAGE 6 — Final Reveal
+   ============================================================ */
+#page6 {
+  background: #020208;
+}
+#page6 .reveal-container {
+  text-align: center;
+}
+#page6 .reveal-line {
+  opacity: 0;
+}
+#page6 .reveal-name {
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-size: clamp(36px, 8vw, 72px);
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(245,200,66,0.4);
+}
+#page6 .reveal-buildup {
+  font-family: 'Lora', serif;
+  font-size: clamp(20px, 4vw, 32px);
+  color: var(--cream);
+  margin: 20px 0;
+}
+#page6 .reveal-abuela {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: clamp(48px, 12vw, 100px);
+  color: var(--gold);
+  text-shadow: 0 0 60px rgba(245,200,66,0.5), 0 0 120px rgba(245,200,66,0.2);
+  transform: scale(0);
+}
+#page6 .reveal-date {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: clamp(16px, 3vw, 22px);
+  color: var(--cream); opacity: 0;
+  margin-top: 24px;
+}
+#page6 .reveal-love {
+  font-family: 'Lora', serif;
+  font-size: clamp(14px, 2.5vw, 18px);
+  color: var(--gold-dim); opacity: 0;
+  margin-top: 12px;
+}
+#page6 .baby-emoji {
+  font-size: 48px; display: inline-block;
+  margin-top: 16px; opacity: 0;
+  transform: translateY(-100px);
+}
+
+/* Confetti canvas */
+#confetti-canvas {
+  position: fixed; inset: 0; z-index: 9998;
+  pointer-events: none;
+}
+
+/* Sparkle rain */
+.sparkle-rain {
+  position: absolute; width: 3px; height: 3px;
+  background: var(--gold); border-radius: 50%;
+  opacity: 0; pointer-events: none;
+  box-shadow: 0 0 4px var(--gold);
+}
+
+/* ============================================================
+   NAVIGATION UI
+   ============================================================ */
+#nav-ui {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px;
+  z-index: 200;
+  opacity: 0; transition: opacity 0.5s;
+}
+#nav-ui.visible { opacity: 1; }
+.nav-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(45,26,10,0.8);
+  border: 1px solid rgba(245,200,66,0.3);
+  color: var(--gold); font-size: 18px;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: background 0.3s, border-color 0.3s;
+  font-family: sans-serif;
+}
+.nav-btn:hover {
+  background: rgba(245,200,66,0.15);
+  border-color: var(--gold);
+}
+.nav-btn:disabled {
+  opacity: 0.3; cursor: default;
+}
+#page-indicator {
+  font-family: 'Lora', serif; font-style: italic;
+  font-size: 13px; color: rgba(245,200,66,0.5);
+  min-width: 100px; text-align: center;
+}
+
+/* ============================================================
+   AUTO-PLAY PROGRESS
+   ============================================================ */
+#autoplay-ui {
+  position: fixed; top: 20px; right: 20px;
+  z-index: 200; display: flex;
+  align-items: center; gap: 10px;
+  opacity: 0; transition: opacity 0.5s;
+}
+#autoplay-ui.visible { opacity: 1; }
+.progress-ring {
+  width: 40px; height: 40px; transform: rotate(-90deg);
+}
+.progress-ring-bg {
+  fill: none; stroke: rgba(245,200,66,0.15); stroke-width: 3;
+}
+.progress-ring-fg {
+  fill: none; stroke: var(--gold); stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 100.53;
+  stroke-dashoffset: 100.53;
+  transition: stroke-dashoffset 0.1s linear;
+}
+.play-pause-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(45,26,10,0.8);
+  border: 1px solid rgba(245,200,66,0.3);
+  color: var(--gold); font-size: 14px;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: background 0.3s;
+}
+.play-pause-btn:hover {
+  background: rgba(245,200,66,0.15);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .page { padding: 30px 30px; }
+  #book-spine { width: 20px; }
+  .page-border { inset: 8px; }
+  .dest-card { width: 120px; padding: 10px; }
+  .dest-card .city { font-size: 13px; }
+  .dest-card .item { font-size: 11px; }
+  .page-number { right: 20px; bottom: 16px; font-size: 10px; }
+  #nav-ui { bottom: 10px; gap: 10px; }
+  .nav-btn { width: 38px; height: 38px; font-size: 15px; }
+  #autoplay-ui { top: 10px; right: 10px; }
+  .floating-item { font-size: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     LOADING SCREEN
+     ============================================================ -->
+<div id="loading">
+  <div class="loading-book">
+    <div class="book-spine"></div>
+    <div class="book-page"></div>
+  </div>
+  <p>Desvelando un secreto...</p>
+</div
+
+<!-- THREE.JS CANVAS -->
+<canvas id="three-canvas"></canvas>
+
+<!-- CONFETTI CANVAS -->
+<canvas id="confetti-canvas"></canvas>
+
+<!-- ============================================================
+     BOOK
+     ============================================================ -->
+<div id="book">
+  <!-- Spine -->
+  <div id="book-spine">
+    <span class="spine-text">Claudia · 2026</span>
+  </div>
+
+  <!-- COVER -->
+  <section class="page active" id="cover" data-page="0">
+    <div class="page-border"><div class="corner-tr"></div><div class="corner-bl"></div></div>
+    <div id="cover-dove">
+      <svg viewBox="0 0 50 50" fill="none">
+        <path d="M25 10 C15 5, 5 15, 10 25 C5 20, 2 28, 10 30 C5 32, 8 38, 15 35 C12 40, 18 42, 22 38 L25 42 L28 38 C32 42, 38 40, 35 35 C42 38, 45 32, 40 30 C48 28, 45 20, 40 25 C45 15, 35 5, 25 10Z" fill="rgba(245,200,66,0.7)" stroke="rgba(245,200,66,0.9)" stroke-width="0.5"/>
+        <circle cx="20" cy="18" r="1.2" fill="#1a0e05"/>
+        <path d="M22 22 Q25 25 28 22" stroke="#1a0e05" stroke-width="0.8" fill="none"/>
+      </svg>
+    </div> 
+    <h1 class="cover-title">Quien lo Supo Antes que Nadie</h1>
+    <p class="cover-subtitle">Antes de que el mundo lo supiera... ella ya lo sabía.</p>
+    <button class="open-btn" onclick="App.openBook()">Descubrir el Secreto ✨</button>
+    <svg class="ornament-bottom" viewBox="0 0 60 12"><path d="M0 6 L10 0 L20 6 L30 0 L40 6 L50 0 L60 6" stroke="rgba(245,200,66,0.3)" fill="none" stroke-width="1"/></svg>
+  </section>
+
+  <!-- PAGE 1 — El Secreto que Guardó el Alma -->
+  <section class="page" id="page1" data-page="1">
+    <div class="page-border"><div class="corner-tr"></div><div class="corner-bl"></div></div>
+    <h2 class="page-title">El Secreto que Guardó el Alma</h2>
+    <div class="compass-container" id="compass">
+      <svg viewBox="0 0 160 160" fill="none" width="100%" height="100%">
+        <circle cx="80" cy="80" r="70" stroke="rgba(245,200,66,0.3)" stroke-width="1"/>
+        <circle cx="80" cy="80" r="55" stroke="rgba(245,200,66,0.2)" stroke-width="0.5"/>
+        <g id="compass-rose">
+          <polygon points="80,15 85,75 80,80 75,75" fill="var(--gold)" opacity="0.8"/>
+          <polygon points="80,145 85,85 80,80 75,85" fill="var(--gold-dim)" opacity="0.5"/>
+          <polygon points="15,80 75,75 80,80 75,85" fill="var(--gold-dim)" opacity="0.5"/>
+          <polygon points="145,80 85,75 80,80 85,85" fill="var(--gold)" opacity="0.8"/>
+          <polygon points="80,30 83,75 80,80 77,75" fill="var(--gold-bright)" opacity="0.4" transform="rotate(45 80 80)"/>
+          <polygon points="80,30 83,75 80,80 77,75" fill="var(--gold-bright)" opacity="0.4" transform="rotate(135 80 80)"/>
+          <polygon points="80,30 83,75 80,80 77,75" fill="var(--gold-bright)" opacity="0.4" transform="rotate(225 80 80)"/>
+          <polygon points="80,30 83,75 80,80 77,75" fill="var(--gold-bright)" opacity="0.4" transform="rotate(315 80 80)"/>
+          <circle cx="80" cy="80" r="5" fill="var(--gold)"/>
+        </g>
+        <text x="80" y="12" text-anchor="middle" fill="var(--gold-dim)" font-size="10" font-family="Playfair Display">N</text>
+        <text x="80" y="158" text-anchor="middle" fill="var(--gold-dim)" font-size="10" font-family="Playfair Display">S</text>
+        <text x="8" y="84" text-anchor="middle" fill="var(--gold-dim)" font-size="10" font-family="Playfair Display">O</text>
+        <text x="152" y="84" text-anchor="middle" fill="var(--gold-dim)" font-size="10" font-family="Playfair Display">E</text>
+      </svg>
+    </div>
+    <p class="page-text" id="page1-text">
+      Hay secretos que no se cuentan con palabras. Se guardan en silencio, con fe, con paciencia. Claudia llevaba uno de esos secretos — uno que nadie más podía ver, pero que ella sentía con cada latido de su corazón.
+    </p>
+    <span class="page-number">Página 1 de 6</span>
+    <div class="footer-dove"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4 C7 2, 3 6, 5 10 C3 8, 2 12, 5 12 C3 13, 4 16, 7 14 C6 16, 8 17, 9 15 L10 17 L11 15 C12 17, 14 16, 13 14 C16 16, 17 13, 15 12 C18 12, 17 8, 15 10 C17 6, 13 2, 10 4Z" fill="rgba(245,200,66,0.4)"/></svg></div>
+    <div class="page-curl"></div>
+  </section>
+
+  <!-- PAGE 2 — Los Ángeles que la Guiaban -->
+  <section class="page" id="page2" data-page="2">
+    <div class="page-border"><div class="corner-tr"></div><div class="corner-bl"></div></div>
+    <h2 class="page-title">Los Ángeles que la Guiaban</h2>
+    <div class="angel-container" id="angel-container">
+      <div class="angel-rays" id="angel-rays"></div>
+      <svg viewBox="0 0 200 260" fill="none" width="100%" height="100%" id="angel-svg">
+        <!-- Angel body -->
+        <ellipse cx="100" cy="200" rx="40" ry="55" fill="rgba(245,200,66,0.15)" stroke="rgba(245,200,66,0.3)" stroke-width="1"/>
+        <!-- Head -->
+        <circle cx="100" cy="120" r="25" fill="rgba(253,246,227,0.15)" stroke="rgba(245,200,66,0.4)" stroke-width="1"/>
+        <!-- Halo -->
+        <ellipse cx="100" cy="92" rx="22" ry="6" stroke="var(--gold)" stroke-width="1.5" fill="none" opacity="0.7"/>
+        <!-- Eyes -->
+        <circle cx="92" cy="118" r="2" fill="var(--gold)"/>
+        <circle cx="108" cy="118" r="2" fill="var(--gold)"/>
+        <!-- Smile -->
+        <path d="M93 127 Q100 133 107 127" stroke="var(--gold-dim)" stroke-width="1" fill="none"/>
+        <!-- Left wing -->
+        <path id="wing-left" d="M60 170 Q30 130 45 90 Q55 110 60 140 Q50 100 55 80 Q65 120 65 155" fill="rgba(245,200,66,0.12)" stroke="rgba(245,200,66,0.3)" stroke-width="0.8"/>
+        <!-- Right wing -->
+        <path id="wing-right" d="M140 170 Q170 130 155 90 Q145 110 140 140 Q150 100 145 80 Q135 120 135 155" fill="rgba(245,200,66,0.12)" stroke="rgba(245,200,66,0.3)" stroke-width="0.8"/>
+        <!-- Glow spots for eyes -->
+        <circle cx="92" cy="118" r="4" fill="rgba(245,200,66,0.2)"/>
+        <circle cx="108" cy="118" r="4" fill="rgba(245,200,66,0.2)"/>
+      </svg>
+    </div>
+    <p class="page-text" id="page2-text">
+      Desde niña, Claudia hablaba con ángeles. No los veía con los ojos — los sentía con el alma. Ellos le susurraban que algo hermoso venía en camino, y ella, con fe inquebrantable, siempre les creyó.
+    </p>
+    <span class="page-number">Página 2 de 6</span>
+    <div class="footer-dove"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4 C7 2, 3 6, 5 10 C3 8, 2 12, 5 12 C3 13, 4 16, 7 14 C6 16, 8 17, 9 15 L10 17 L11 15 C12 17, 14 16, 13 14 C16 16, 17 13, 15 12 C18 12, 17 8, 15 10 C17 6, 13 2, 10 4Z" fill="rgba(245,200,66,0.4)"/></svg></div>
+    <div class="page-curl"></div>
+  </section>
+
+  <!-- PAGE 3 — La Vuelta al Mundo con Amor -->
+  <section class="page" id="page3" data-page="3">
+    <div class="page-border"><div class="corner-tr"></div><div class="corner-bl"></div></div>
+    <h2 class="page-title">La Vuelta al Mundo con Amor</h2>
+    <div class="map-container" id="map-container">
+      <svg viewBox="0 0 500 250" fill="none" width="100%" height="100%" id="world-map">
+        <!-- Simplified world map outlines -->
+        <!-- Americas -->
+        <path d="M100 60 Q110 50 120 55 L130 70 Q125 90 115 100 L110 120 Q105 140 100 150 L95 170 Q90 180 85 175 L80 160 Q85 140 90 120 L95 100 Q100 80 100 60Z" stroke="rgba(245,200,66,0.25)" fill="rgba(245,200,66,0.05)" stroke-width="0.8"/>
+        <!-- North America -->
+        <path d="M60 40 Q80 30 110 35 L120 45 Q115 50 100 55 L85 50 Q70 45 60 40Z" stroke="rgba(245,200,66,0.25)" fill="rgba(245,200,66,0.05)" stroke-width="0.8"/>
+        <!-- Europe -->
+        <path d="M230 40 Q250 35 270 40 L280 50 Q275 60 265 65 L250 60 Q240 55 230 50 Z" stroke="rgba(245,200,66,0.25)" fill="rgba(245,200,66,0.05)" stroke-width="0.8"/>
+        <!-- Africa -->
+        <path d="M250 70 Q260 65 270 70 L275 100 Q270 130 260 150 L250 145 Q245 120 245 100 Z" stroke="rgba(245,200,66,0.25)" fill="rgba(245,200,66,0.05)" stroke-width="0.8"/>
+        <!-- Asia -->
+        <path d="M280 35 Q320 25 370 35 L390 50 Q400 70 395 80 L370 75 Q340 70 310 65 L290 55 Q280 45 280 35Z" stroke="rgba(245,200,66,0.25)" fill="rgba(245,200,66,0.05)" stroke-width="0.8"/>
+        <!-- Japan -->
+        <path d="M400 45 Q405 40 408 45 L410 60 Q408 70 405 65 L400 55 Z" stroke="rgba(245,200,66,0.25)" fill="rgba(245,200,66,0.05)" stroke-width="0.8"/>
+
+        <!-- City dots -->
+        <circle cx="95" cy="100" r="4" fill="var(--gold)" opacity="0.8"/> <!-- Mexico -->
+        <circle cx="255" cy="52" r="4" fill="var(--gold)" opacity="0.8"/> <!-- Madrid -->
+        <circle cx="405" cy="52" r="4" fill="var(--gold)" opacity="0.8"/> <!-- Tokyo -->
+        <circle cx="75" cy="55" r="4" fill="var(--gold)" opacity="0.8"/> <!-- San Diego -->
+
+        <!-- City labels -->
+        <text x="95" y="118" text-anchor="middle" fill="var(--gold-dim)" font-size="9" font-family="Lora">México</text>
+        <text x="255" y="45" text-anchor="middle" fill="var(--gold-dim)" font-size="9" font-family="Lora">Madrid</text>
+        <text x="405" y="42" text-anchor="middle" fill="var(--gold-dim)" font-size="9" font-family="Lora">Tokio</text>
+        <text x="75" y="48" text-anchor="middle" fill="var(--gold-dim)" font-size="9" font-family="Lora">San Diego</text>
+
+        <!-- Flight paths (dotted) -->
+        <path id="path-madrid" d="M95 100 Q175 30 255 52" stroke="var(--gold)" stroke-width="1" stroke-dasharray="4 4" fill="none" opacity="0.5"/>
+        <path id="path-tokyo" d="M255 52 Q330 20 405 52" stroke="var(--gold)" stroke-width="1" stroke-dasharray="4 4" fill="none" opacity="0.5"/>
+        <path id="path-sandiego" d="M405 52 Q300 -20 75 55" stroke="var(--gold)" stroke-width="1" stroke-dasharray="4 4" fill="none" opacity="0.5"/>
+
+        <!-- Plane -->
+        <g id="plane-icon">
+          <polygon points="12,6 0,12 4,6 0,0" fill="var(--gold)" transform="translate(-6,-6)"/>
+        </g>
+      </svg>
+    </div>
+    <div class="destination-cards">
+      <div class="dest-card" id="card-madrid">
+        <div class="flag">🇪🇸</div>
+        <div class="city">Madrid</div>
+        <div class="item">Un gorrito de lana 🧢</div>
+      </div>
+      <div class="dest-card" id="card-tokyo">
+        <div class="flag">🇯🇵</div>
+        <div class="city">Tokio</div>
+        <div class="item">Un body de seda 👘</div>
+      </div>
+      <div class="dest-card" id="card-sandiego">
+        <div class="flag">🇺🇸</div>
+        <div class="city">San Diego</div>
+        <div class="item">Sandalias diminutas 👟</div>
+      </div>
+    </div>
+    <span class="page-number">Página 3 de 6</span>
+    <div class="footer-dove"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4 C7 2, 3 6, 5 10 C3 8, 2 12, 5 12 C3 13, 4 16, 7 14 C6 16, 8 17, 9 15 L10 17 L11 15 C12 17, 14 16, 13 14 C16 16, 17 13, 15 12 C18 12, 17 8, 15 10 C17 6, 13 2, 10 4Z" fill="rgba(245,200,66,0.4)"/></svg></div>
+    <div class="page-curl"></div>
+  </section>
+
+  <!-- PAGE 4 — El Cofre de los Sueños -->
+  <section class="page" id="page4" data-page="4">
+    <div class="page-border"><div class="corner-tr"></div><div class="corner-bl"></div></div>
+    <h2 class="page-title">El Cofre de los Sueños</h2>
+    <div class="chest-container" id="chest-container">
+      <div class="chest-light" id="chest-light"></div>
+      <svg viewBox="0 0 180 150" fill="none" width="100%" height="100%" id="chest-svg">
+        <!-- Chest body -->
+        <rect x="20" y="70" width="140" height="70" rx="5" fill="rgba(139,90,43,0.6)" stroke="rgba(245,200,66,0.5)" stroke-width="1.5"/>
+        <!-- Chest bands -->
+        <rect x="20" y="90" width="140" height="8" fill="rgba(245,200,66,0.15)"/>
+        <rect x="20" y="115" width="140" height="8" fill="rgba(245,200,66,0.15)"/>
+        <!-- Lock -->
+        <circle cx="90" cy="90" r="8" fill="rgba(245,200,66,0.4)" stroke="var(--gold)" stroke-width="1"/>
+        <rect x="87" y="88" width="6" height="8" rx="1" fill="var(--bg-dark)"/>
+        <!-- Chest lid -->
+        <g id="chest-lid">
+          <path d="M20 70 Q90 20 160 70 L160 70 L20 70Z" fill="rgba(139,90,43,0.7)" stroke="rgba(245,200,66,0.5)" stroke-width="1.5"/>
+          <path d="M40 60 Q90 30 140 60" stroke="rgba(245,200,66,0.2)" stroke-width="1" fill="none"/>
+        </g>
+      </svg>
+      <!-- Floating baby items -->
+      <span class="floating-item" data-delay="0" style="left:20%;top:40%">🧸</span>
+      <span class="floating-item" data-delay="0.15" style="left:50%;top:30%">👶</span>
+      <span class="floating-item" data-delay="0.3" style="left:70%;top:45%">🎀</span>
+      <span class="floating-item" data-delay="0.45" style="left:35%;top:25%">🧢</span>
+      <span class="floating-item" data-delay="0.6" style="left:60%;top:20%">✨</span>
+      <span class="floating-item" data-delay="0.75" style="left:80%;top:35%">🍼</span>
+    </div>
+    <p class="page-text" id="page4-text">
+      Durante dos años, Claudia guardó cada tesoro con manos de madre y fe de abuela. Un cofre lleno de sueños diminutos — cada prenda, una oración doblada con amor.
+    </p>
+    <span class="page-number">Página 4 de 6</span>
+    <div class="footer-dove"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4 C7 2, 3 6, 5 10 C3 8, 2 12, 5 12 C3 13, 4 16, 7 14 C6 16, 8 17, 9 15 L10 17 L11 15 C12 17, 14 16, 13 14 C16 16, 17 13, 15 12 C18 12, 17 8, 15 10 C17 6, 13 2, 10 4Z" fill="rgba(245,200,66,0.4)"/></svg></div>
+    <div class="page-curl"></div>
+  </section>
+
+  <!-- PAGE 5 — El Día que Todo Cambió -->
+  <section class="page" id="page5" data-page="5">
+    <div class="page-border"><div class="corner-tr"></div><div class="corner-bl"></div></div>
+    <h2 class="page-title" style="opacity:0">El Día que Todo Cambió</h2>
+    <div class="star" id="page5-star"></div>
+    <div class="typewriter-text" id="page5-typewriter">
+      Y entonces, un día cualquiera se convirtió en el día más extraordinario. El cielo se abrió, la estrella brilló, y los ángeles cantaron en silencio lo que el corazón ya sabía...
+    </div>
+    <div class="next-hint" id="page5-hint">
+      Da vuelta a la última página... <span class="arrow">→</span>
+    </div>
+    <span class="page-number">Página 5 de 6</span>
+    <div class="footer-dove"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4 C7 2, 3 6, 5 10 C3 8, 2 12, 5 12 C3 13, 4 16, 7 14 C6 16, 8 17, 9 15 L10 17 L11 15 C12 17, 14 16, 13 14 C16 16, 17 13, 15 12 C18 12, 17 8, 15 10 C17 6, 13 2, 10 4Z" fill="rgba(245,200,66,0.4)"/></svg></div>
+    <div class="page-curl"></div>
+  </section>
+
+  <!-- PAGE 6 — Final Reveal -->
+  <section class="page" id="page6" data-page="6">
+    <div class="reveal-container">
+      <div class="reveal-line reveal-name" id="reveal-name">Claudia...</div>
+      <div class="reveal-line reveal-buildup" id="reveal-buildup">Vas a ser...</div>
+      <div class="reveal-line reveal-abuela" id="reveal-abuela">ABUELA 🍼</div>
+      <div class="baby-emoji" id="baby-emoji">👶</div>
+      <div class="reveal-line reveal-date" id="reveal-date">Noviembre · Diciembre 2026</div>
+      <div class="reveal-line reveal-love" id="reveal-love">con todo el amor — Nahum y Claudia 💛</div>
+    </div>
+    <span class="page-number">Página 6 de 6</span>
+  </section>
+</div>
+
+<!-- ============================================================
+     NAV UI
+     ============================================================ -->
+<div id="nav-ui">
+  <button class="nav-btn" id="btn-prev" disabled>‹</button>
+  <span id="page-indicator">Portada</span>
+  <button class="nav-btn" id="btn-next">›</button>
+</div>
+
+<!-- ============================================================
+     AUTOPLAY UI
+     ============================================================ -->
+<div id="autoplay-ui">
+  <svg class="progress-ring" viewBox="0 0 40 40">
+    <circle class="progress-ring-bg" cx="20" cy="20" r="16"/>
+    <circle class="progress-ring-fg" id="progress-circle" cx="20" cy="20" r="16"/>
+  </svg>
+  <button class="play-pause-btn" id="btn-playpause">⏸</button>
+  <button class="play-pause-btn" id="btn-mute">🔊</button>
+</div>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/MotionPathPlugin.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  const state = {
+    currentPage: 0,
+    totalPages: 7,
+    isPlaying: false,
+    isMuted: false,
+    isAnimating: false,
+    bookOpened: false
+  };
+
+  // ============================================================
+  // DOM REFS
+  // ============================================================
+  const pages = document.querySelectorAll('.page');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const pageIndicator = document.getElementById('page-indicator');
+  const navUI = document.getElementById('nav-ui');
+  const autoplayUI = document.getElementById('autoplay-ui');
+  const progressCircle = document.getElementById('progress-circle');
+  const btnPlayPause = document.getElementById('btn-playpause');
+  const confettiCanvas = document.getElementById('confetti-canvas');
+  const confettiCtx = confettiCanvas.getContext('2d');
+
+  // ============================================================
+  // GSAP SETUP
+  // ============================================================
+  gsap.registerPlugin(MotionPathPlugin);
+
+  // ============================================================
+  // SOUND
+  // ============================================================
+  let pageSound = null;
+  try {
+    pageSound = new Howl({
+      src: ['data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='],
+      volume: 0.15,
+      format: ['wav']
+    });
+  } catch(e) {}
+
+  function playPageSound() {
+    if (pageSound && !state.isMuted) {
+      try { pageSound.play(); } catch(e) {}
+    }
+  }
+
+  // ============================================================
+  // AUDIO NARRATION & BACKGROUND MUSIC
+  // ============================================================
+  // Place MP3 files in an /audio subfolder next to this HTML file.
+  // Files can be added one by one — missing files are handled silently.
+  // Files needed: cover.mp3, p1.mp3, p2.mp3, p3.mp3, p4.mp3, p5.mp3, p6.mp3, music.mp3
+
+  const audioMap = {
+    0: 'audio/cover.mp3',
+    1: 'audio/p1.mp3',
+    2: 'audio/p2.mp3',
+    3: 'audio/p3.mp3',
+    4: 'audio/p4.mp3',
+    5: 'audio/p5.mp3',
+    6: 'audio/p6.mp3'
+  };
+
+  let currentNarration = null;
+  let bgMusic = null;
+
+  function playPageAudio(pageIndex) {
+    try {
+      // Stop and unload any currently playing narration
+      if (currentNarration) {
+        try { currentNarration.stop(); currentNarration.unload(); } catch(e) {}
+        currentNarration = null;
+      }
+
+      const src = audioMap[pageIndex];
+      if (!src) return;
+
+      var howl = new Howl({
+        src: [src],
+        volume: 0.85,
+        preload: true,
+        onload: function() {
+          if (currentNarration !== howl) return;
+          howl.volume(0);
+          howl.play();
+          howl.fade(0, 0.85, 800);
+        },
+        onloaderror: function() { /* missing file — ignore */ },
+        onplayerror: function() {
+          // Retry once on user-gesture unlock
+          howl.once('unlock', function() { howl.play(); });
+        }
+      });
+      currentNarration = howl;
+    } catch(e) {}
+  }
+
+  function initBgMusic() {
+    try {
+      bgMusic = new Howl({
+        src: ['audio/music.mp3'],
+        volume: 0.15,
+        loop: true,
+        preload: true,
+        onload: function() {
+          if (!bgMusic) return;
+          bgMusic.volume(0);
+          bgMusic.play();
+          bgMusic.fade(0, 0.15, 1500);
+        },
+        onloaderror: function() { bgMusic = null; },
+        onplayerror: function() {
+          bgMusic.once('unlock', function() { bgMusic.play(); });
+        }
+      });
+    } catch(e) {
+      bgMusic = null;
+    }
+  }
+
+  function fadeOutBgMusic() {
+    try {
+      if (bgMusic && bgMusic.playing()) {
+        bgMusic.fade(bgMusic.volume(), 0, 3000);
+      }
+    } catch(e) {}
+  }
+
+  // Mute button
+  const btnMute = document.getElementById('btn-mute');
+  btnMute.addEventListener('click', function() {
+    state.isMuted = !state.isMuted;
+    btnMute.textContent = state.isMuted ? '🔇' : '🔊';
+    try {
+      Howler.mute(state.isMuted);
+    } catch(e) {}
+  });
+
+  // ============================================================
+  // THREE.JS PARTICLE SYSTEM
+  // ============================================================
+  const threeCanvas = document.getElementById('three-canvas');
+  let threeScene, threeCamera, threeRenderer, particles, particlePositions;
+  const PARTICLE_COUNT = window.innerWidth < 768 ? 100 : 200;
+
+  function initThree() {
+    threeScene = new THREE.Scene();
+    threeCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    threeCamera.position.z = 5;
+
+    threeRenderer = new THREE.WebGLRenderer({ canvas: threeCanvas, alpha: true, antialias: false });
+    threeRenderer.setSize(window.innerWidth, window.innerHeight);
+    threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const geometry = new THREE.BufferGeometry();
+    particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+    const sizes = new Float32Array(PARTICLE_COUNT);
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particlePositions[i * 3] = (Math.random() - 0.5) * 12;
+      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 8;
+      particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 6;
+      sizes[i] = Math.random() * 3 + 1;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+    const material = new THREE.PointsMaterial({
+      color: 0xf5c842,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true
+    });
+
+    particles = new THREE.Points(geometry, material);
+    threeScene.add(particles);
+
+    animateThree();
+  }
+
+  let threeTime = 0;
+  function animateThree() {
+    requestAnimationFrame(animateThree);
+    threeTime += 0.003;
+
+    const pos = particles.geometry.attributes.position.array;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      pos[i * 3 + 1] += Math.sin(threeTime + i * 0.5) * 0.001 + 0.0005;
+      if (pos[i * 3 + 1] > 4) pos[i * 3 + 1] = -4;
+    }
+    particles.geometry.attributes.position.needsUpdate = true;
+    particles.rotation.y = threeTime * 0.05;
+
+    threeRenderer.render(threeScene, threeCamera);
+  }
+
+  function onResize() {
+    if (threeCamera && threeRenderer) {
+      threeCamera.aspect = window.innerWidth / window.innerHeight;
+      threeCamera.updateProjectionMatrix();
+      threeRenderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', onResize);
+
+  // ============================================================
+  // PAGE TRANSITIONS
+  // ============================================================
+  function goToPage(target) {
+    if (state.isAnimating || target < 0 || target >= state.totalPages || target === state.currentPage) return;
+    state.isAnimating = true;
+
+    const currentEl = pages[state.currentPage];
+    const targetEl = pages[target];
+    const goingForward = target > state.currentPage;
+
+    playPageSound();
+
+    // Setup target page
+    gsap.set(targetEl, {
+      visibility: 'visible', opacity: 1,
+      rotateY: goingForward ? 90 : -90,
+      transformOrigin: goingForward ? 'left center' : 'right center',
+      zIndex: 5
+    });
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        currentEl.classList.remove('active');
+        gsap.set(currentEl, { visibility: 'hidden', opacity: 0, rotateY: 0, zIndex: 1 });
+        targetEl.classList.add('active');
+        gsap.set(targetEl, { zIndex: 1 });
+        state.currentPage = target;
+        state.isAnimating = false;
+        updateNav();
+        triggerPageAnimation(target);
+        playPageAudio(target);
+        resetAutoPlay();
+      }
+    });
+
+    tl.to(currentEl, {
+      rotateY: goingForward ? -90 : 90,
+      transformOrigin: goingForward ? 'left center' : 'right center',
+      duration: 0.5,
+      ease: 'power3.inOut',
+      opacity: 0
+    });
+
+    tl.to(targetEl, {
+      rotateY: 0,
+      duration: 0.5,
+      ease: 'power3.inOut'
+    }, '-=0.2');
+  }
+
+  // ============================================================
+  // NAVIGATION
+  // ============================================================
+  function updateNav() {
+    const p = state.currentPage;
+    btnPrev.disabled = p <= 0;
+    btnNext.disabled = p >= state.totalPages - 1;
+
+    if (p === 0) {
+      pageIndicator.textContent = 'Portada';
+    } else {
+      pageIndicator.textContent = `Página ${p} de 6`;
+    }
+
+    // Stop autoplay on final page
+    if (p === state.totalPages - 1) {
+      state.isPlaying = false;
+      btnPlayPause.textContent = '▶';
+      cancelAutoPlay();
+    }
+  }
+
+  btnPrev.addEventListener('click', () => goToPage(state.currentPage - 1));
+  btnNext.addEventListener('click', () => goToPage(state.currentPage + 1));
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (!state.bookOpened) return;
+    if (e.key === 'ArrowRight') goToPage(state.currentPage + 1);
+    else if (e.key === 'ArrowLeft') goToPage(state.currentPage - 1);
+    else if (e.key === ' ') { e.preventDefault(); toggleAutoPlay(); }
+  });
+
+  // Touch swipe
+  let touchStartX = 0, touchStartY = 0;
+  document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!state.bookOpened) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) goToPage(state.currentPage + 1);
+      else goToPage(state.currentPage - 1);
+    }
+  }, { passive: true });
+
+  // ============================================================
+  // AUTO-PLAY SYSTEM
+  // ============================================================
+  let autoPlayTimer = null;
+  let autoPlayTween = null;
+  const circumference = 2 * Math.PI * 16; // r=16
+
+  // Duration per page — matched to audio length + ~2s buffer
+  const pageDurations = {
+    0: 12,   // cover.mp3: 9.7s
+    1: 23,   // p1.mp3: 20.7s
+    2: 20,   // p2.mp3: 18.1s
+    3: 26,   // p3.mp3: 23.4s
+    4: 20,   // p4.mp3: 18.0s
+    5: 19,   // p5.mp3: 16.7s
+    6: 10    // p6.mp3: 3.7s (final reveal)
+  };
+
+  function getPageDuration() {
+    return pageDurations[state.currentPage] || 12;
+  }
+
+  function startAutoPlay() {
+    cancelAutoPlay();
+    if (!state.isPlaying || state.currentPage >= state.totalPages - 1) return;
+
+    progressCircle.style.strokeDashoffset = circumference;
+
+    autoPlayTween = gsap.to(progressCircle, {
+      strokeDashoffset: 0,
+      duration: getPageDuration(),
+      ease: 'none',
+      onComplete: () => {
+        goToPage(state.currentPage + 1);
+      }
+    });
+  }
+
+  function cancelAutoPlay() {
+    if (autoPlayTween) { autoPlayTween.kill(); autoPlayTween = null; }
+    if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+    progressCircle.style.strokeDashoffset = circumference;
+  }
+
+  function resetAutoPlay() {
+    if (state.isPlaying) startAutoPlay();
+  }
+
+  function pauseAllAudio() {
+    try { if (currentNarration && currentNarration.playing()) currentNarration.pause(); } catch(e) {}
+    try { if (bgMusic && bgMusic.playing()) bgMusic.pause(); } catch(e) {}
+  }
+
+  function resumeAllAudio() {
+    try { if (currentNarration) currentNarration.play(); } catch(e) {}
+    try { if (bgMusic) bgMusic.play(); } catch(e) {}
+  }
+
+  function toggleAutoPlay() {
+    state.isPlaying = !state.isPlaying;
+    btnPlayPause.textContent = state.isPlaying ? '⏸' : '▶';
+    if (state.isPlaying) {
+      if (autoPlayTween && autoPlayTween.paused()) {
+        autoPlayTween.resume();
+      } else {
+        startAutoPlay();
+      }
+      resumeAllAudio();
+    } else {
+      if (autoPlayTween) autoPlayTween.pause();
+      pauseAllAudio();
+    }
+  }
+
+  btnPlayPause.addEventListener('click', toggleAutoPlay);
+
+  // ============================================================
+  // PAGE ANIMATIONS
+  // ============================================================
+  const pageAnimations = [];
+
+  // COVER ANIMATION
+  pageAnimations[0] = function() {
+    const titleEl = document.querySelector('#cover .cover-title');
+    const titleText = 'Claudia — Quien lo Supo\nAntes que Nadie';
+    titleEl.innerHTML = '';
+    const lines = titleText.split('\n');
+    lines.forEach((line, li) => {
+      if (li > 0) titleEl.appendChild(document.createElement('br'));
+      line.split('').forEach(ch => {
+        const span = document.createElement('span');
+        span.className = 'char';
+        span.textContent = ch === ' ' ? '\u00A0' : ch;
+        titleEl.appendChild(span);
+      });
+    });
+
+    const tl = gsap.timeline();
+    tl.to('#cover .cover-title .char', {
+      opacity: 1, duration: 0.05, stagger: 0.04, ease: 'none'
+    });
+    tl.to('#cover .cover-subtitle', { opacity: 1, duration: 0.8, y: 0 }, '-=0.5');
+    tl.to('#cover .open-btn', { opacity: 1, duration: 0.6 }, '-=0.3');
+
+    // Dove animation
+    gsap.to('#cover-dove', {
+      opacity: 0.8, x: window.innerWidth + 100,
+      duration: 4, ease: 'power1.inOut', delay: 1
+    });
+  };
+
+  // PAGE 1 — Compass + Word reveal
+  pageAnimations[1] = function() {
+    const textEl = document.getElementById('page1-text');
+    const words = textEl.textContent.trim().split(/\s+/);
+    textEl.innerHTML = words.map(w => `<span class="word" style="opacity:0">${w}</span>`).join(' ');
+
+    const tl = gsap.timeline();
+    tl.from('#page1 .page-title', { opacity: 0, y: 20, duration: 0.6 });
+    tl.to('#page1 .word', { opacity: 1, duration: 0.08, stagger: 0.06 }, '+=0.2');
+
+    // Compass rotation
+    gsap.to('#compass-rose', {
+      rotation: 360, duration: 20, repeat: -1, ease: 'none',
+      transformOrigin: '80px 80px'
+    });
+
+    // Fireflies
+    createFireflies(document.getElementById('page1'), 8);
+  };
+
+  // PAGE 2 — Angel
+  pageAnimations[2] = function() {
+    const textEl = document.getElementById('page2-text');
+    const words = textEl.textContent.trim().split(/\s+/);
+    textEl.innerHTML = words.map(w => `<span class="word" style="opacity:0">${w}</span>`).join(' ');
+
+    // Create rays
+    const raysContainer = document.getElementById('angel-rays');
+    raysContainer.innerHTML = '';
+    for (let i = 0; i < 12; i++) {
+      const ray = document.createElement('div');
+      ray.className = 'ray';
+      ray.style.transform = `rotate(${i * 30}deg)`;
+      raysContainer.appendChild(ray);
+    }
+
+    const tl = gsap.timeline();
+    tl.from('#page2 .page-title', { opacity: 0, y: 20, duration: 0.6 });
+    tl.to('#angel-rays', { opacity: 0.6, duration: 1 }, '+=0.2');
+    tl.to('#page2 .word', { opacity: 1, duration: 0.08, stagger: 0.06 }, '-=0.5');
+
+    // Wing flap
+    gsap.to('#wing-left', {
+      attr: { d: 'M60 170 Q20 120 35 80 Q50 105 60 140 Q40 90 48 70 Q65 120 65 155' },
+      duration: 1.2, repeat: -1, yoyo: true, ease: 'sine.inOut'
+    });
+    gsap.to('#wing-right', {
+      attr: { d: 'M140 170 Q180 120 165 80 Q150 105 140 140 Q160 90 152 70 Q135 120 135 155' },
+      duration: 1.2, repeat: -1, yoyo: true, ease: 'sine.inOut'
+    });
+
+    // Rotating rays
+    gsap.to('#angel-rays', {
+      rotation: 360, duration: 30, repeat: -1, ease: 'none'
+    });
+
+    // Angel sparkles
+    createAngelSparkles();
+  };
+
+  // PAGE 3 — World Map + Cards
+  pageAnimations[3] = function() {
+    const tl = gsap.timeline();
+    tl.from('#page3 .page-title', { opacity: 0, y: 20, duration: 0.6 });
+
+    // Draw paths
+    const paths = ['#path-madrid', '#path-tokyo', '#path-sandiego'];
+    paths.forEach((pathSel, i) => {
+      const pathEl = document.querySelector(pathSel);
+      const length = pathEl.getTotalLength();
+      gsap.set(pathEl, { strokeDasharray: length, strokeDashoffset: length });
+      tl.to(pathEl, { strokeDashoffset: 0, duration: 1.2, ease: 'power1.inOut' }, i * 1);
+    });
+
+    // Plane along paths
+    const planeEl = document.getElementById('plane-icon');
+    gsap.set(planeEl, { opacity: 0 });
+
+    tl.to(planeEl, { opacity: 1, duration: 0.3 }, 0.3);
+    tl.to(planeEl, {
+      motionPath: { path: '#path-madrid', align: '#path-madrid', alignOrigin: [0.5, 0.5], autoRotate: true },
+      duration: 1.2, ease: 'power1.inOut'
+    }, 0.3);
+    tl.to(planeEl, {
+      motionPath: { path: '#path-tokyo', align: '#path-tokyo', alignOrigin: [0.5, 0.5], autoRotate: true },
+      duration: 1.2, ease: 'power1.inOut'
+    }, 1.3);
+    tl.to(planeEl, {
+      motionPath: { path: '#path-sandiego', align: '#path-sandiego', alignOrigin: [0.5, 0.5], autoRotate: true },
+      duration: 1.2, ease: 'power1.inOut'
+    }, 2.3);
+
+    // Cards flip in
+    const cards = ['#card-madrid', '#card-tokyo', '#card-sandiego'];
+    cards.forEach((card, i) => {
+      tl.to(card, {
+        opacity: 1, rotateY: 0, duration: 0.6,
+        ease: 'back.out(1.5)'
+      }, 1 + i * 1.2);
+    });
+  };
+
+  // PAGE 4 — Treasure Chest
+  pageAnimations[4] = function() {
+    const textEl = document.getElementById('page4-text');
+    const words = textEl.textContent.trim().split(/\s+/);
+    textEl.innerHTML = words.map(w => `<span class="word" style="opacity:0">${w}</span>`).join(' ');
+
+    const tl = gsap.timeline();
+    tl.from('#page4 .page-title', { opacity: 0, y: 20, duration: 0.6 });
+
+    // Chest open
+    tl.to('#chest-lid', {
+      attr: { transform: 'rotate(-40 90 70)' },
+      duration: 1, ease: 'power2.out'
+    }, '+=0.5');
+
+    // Light beam
+    tl.to('#chest-light', { opacity: 1, duration: 0.5 }, '-=0.5');
+
+    // Floating items
+    const items = document.querySelectorAll('#page4 .floating-item');
+    items.forEach((item, i) => {
+      const delay = parseFloat(item.dataset.delay) || 0;
+      tl.to(item, {
+        opacity: 1, y: -60 - Math.random() * 40,
+        duration: 0.8, ease: 'back.out(2)'
+      }, 1.2 + delay);
+
+      // Continuous float
+      gsap.to(item, {
+        y: '-=15', duration: 1.5 + Math.random(),
+        repeat: -1, yoyo: true, ease: 'sine.inOut',
+        delay: 2 + delay
+      });
+    });
+
+    // Text reveal
+    tl.to('#page4 .word', { opacity: 1, duration: 0.06, stagger: 0.05 }, '+=0.3');
+  };
+
+  // PAGE 5 — Sunrise
+  pageAnimations[5] = function() {
+    const textEl = document.getElementById('page5-typewriter');
+    const text = textEl.textContent.trim();
+    const heartbeatWords = ['extraordinario', 'estrella', 'ángeles', 'corazón'];
+    textEl.innerHTML = text.split(/\s+/).map(w => {
+      const isHeart = heartbeatWords.some(hw => w.toLowerCase().includes(hw));
+      return `<span class="char" ${isHeart ? 'data-heartbeat="true"' : ''}>${w}</span>`;
+    }).join(' ');
+
+    const tl = gsap.timeline();
+
+    // Dark to sunrise
+    tl.to('#page5', { background: 'linear-gradient(180deg, #1a0e05 0%, #2d1a0a 50%, #3d2510 100%)', duration: 3 });
+    tl.to('#page5 .page-title', { opacity: 1, duration: 0.8 }, 0.5);
+
+    // Star grows
+    tl.to('#page5-star', {
+      opacity: 1, scale: 1.5, duration: 2, ease: 'power2.out',
+      boxShadow: '0 0 40px var(--gold), 0 0 80px var(--gold), 0 0 120px rgba(245,200,66,0.5)'
+    }, 1);
+
+    // Typewriter
+    const chars = textEl.querySelectorAll('.char');
+    chars.forEach((ch, i) => {
+      tl.to(ch, { opacity: 0.9, duration: 0.05 }, 2 + i * 0.12);
+
+      if (ch.dataset.heartbeat) {
+        tl.to(ch, {
+          scale: 1.15, color: 'var(--gold)', duration: 0.15,
+          yoyo: true, repeat: 2, ease: 'sine.inOut'
+        }, 2 + i * 0.12 + 0.05);
+      }
+    });
+
+    // Next hint
+    tl.to('#page5-hint', { opacity: 1, duration: 0.6 }, '+=0.5');
+    gsap.to('#page5-hint .arrow', {
+      x: 8, duration: 0.6, repeat: -1, yoyo: true, ease: 'sine.inOut'
+    });
+  };
+
+  // PAGE 6 — Final Reveal
+  pageAnimations[6] = function() {
+    fadeOutBgMusic();
+    const tl = gsap.timeline();
+
+    // Claudia...
+    tl.to('#reveal-name', {
+      opacity: 1, duration: 1.5, ease: 'power2.out'
+    });
+    tl.to({}, { duration: 2 }); // 3 second pause total
+
+    // Vas a ser...
+    tl.to('#reveal-buildup', {
+      opacity: 1, duration: 1, ease: 'power2.out'
+    });
+    tl.to({}, { duration: 1 });
+
+    // ABUELA explosion
+    tl.to('#reveal-abuela', {
+      opacity: 1, scale: 1, duration: 0.6,
+      ease: 'back.out(2)'
+    });
+
+    // Confetti!
+    tl.call(() => launchConfetti(), null, '-=0.2');
+
+    // Baby emoji bounce
+    tl.to('#baby-emoji', {
+      opacity: 1, y: 0, duration: 0.8,
+      ease: 'bounce.out'
+    }, '+=0.3');
+
+    // Date
+    tl.to('#reveal-date', { opacity: 1, duration: 0.8 }, '+=0.5');
+
+    // Love message
+    tl.to('#reveal-love', { opacity: 1, duration: 0.8 }, '+=0.3');
+
+    // Sparkle rain
+    tl.call(() => startSparkleRain(), null, '+=0.5');
+  };
+
+  function triggerPageAnimation(pageIndex) {
+    if (pageAnimations[pageIndex]) {
+      pageAnimations[pageIndex]();
+    }
+  }
+
+  // ============================================================
+  // HELPER: Fireflies
+  // ============================================================
+  function createFireflies(container, count) {
+    for (let i = 0; i < count; i++) {
+      const firefly = document.createElement('div');
+      firefly.className = 'firefly';
+      firefly.style.left = Math.random() * 80 + 10 + '%';
+      firefly.style.top = Math.random() * 80 + 10 + '%';
+      container.appendChild(firefly);
+
+      gsap.to(firefly, {
+        opacity: 0.8, duration: 0.8 + Math.random(),
+        repeat: -1, yoyo: true, ease: 'sine.inOut',
+        delay: Math.random() * 2
+      });
+      gsap.to(firefly, {
+        x: (Math.random() - 0.5) * 60,
+        y: (Math.random() - 0.5) * 60,
+        duration: 3 + Math.random() * 3,
+        repeat: -1, yoyo: true, ease: 'sine.inOut'
+      });
+    }
+  }
+
+  // ============================================================
+  // HELPER: Angel Sparkles
+  // ============================================================
+  function createAngelSparkles() {
+    const container = document.getElementById('angel-container');
+    setInterval(() => {
+      if (state.currentPage !== 2) return;
+      const sparkle = document.createElement('div');
+      sparkle.className = 'angel-sparkle';
+      sparkle.style.left = 30 + Math.random() * 40 + '%';
+      sparkle.style.top = 20 + Math.random() * 60 + '%';
+      container.appendChild(sparkle);
+
+      gsap.to(sparkle, {
+        opacity: 0.9, y: -40, duration: 1.2,
+        ease: 'power1.out',
+        onComplete: () => sparkle.remove()
+      });
+      gsap.to(sparkle, {
+        opacity: 0, duration: 0.4, delay: 0.8,
+      });
+    }, 300);
+  }
+
+  // ============================================================
+  // CONFETTI
+  // ============================================================
+  const confettiPieces = [];
+  let confettiActive = false;
+
+  function launchConfetti() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+    confettiActive = true;
+
+    const colors = ['#f5c842', '#f0a0b0', '#c4b0e0', '#fdf6e3', '#ffe066', '#ffb6c1'];
+    for (let i = 0; i < 150; i++) {
+      confettiPieces.push({
+        x: window.innerWidth / 2 + (Math.random() - 0.5) * 100,
+        y: window.innerHeight / 2,
+        vx: (Math.random() - 0.5) * 16,
+        vy: -Math.random() * 18 - 5,
+        w: Math.random() * 10 + 4,
+        h: Math.random() * 6 + 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 10,
+        gravity: 0.25 + Math.random() * 0.15
+      });
+    }
+    animateConfetti();
+  }
+
+  function animateConfetti() {
+    if (!confettiActive) return;
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+    let alive = 0;
+    confettiPieces.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.99;
+      p.rotation += p.rotSpeed;
+
+      if (p.y < confettiCanvas.height + 50) {
+        alive++;
+        confettiCtx.save();
+        confettiCtx.translate(p.x, p.y);
+        confettiCtx.rotate(p.rotation * Math.PI / 180);
+        confettiCtx.fillStyle = p.color;
+        confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        confettiCtx.restore();
+      }
+    });
+
+    if (alive > 0) {
+      requestAnimationFrame(animateConfetti);
+    } else {
+      confettiActive = false;
+      confettiPieces.length = 0;
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+  }
+
+  // ============================================================
+  // SPARKLE RAIN (Page 6)
+  // ============================================================
+  let sparkleRainActive = false;
+  function startSparkleRain() {
+    if (sparkleRainActive) return;
+    sparkleRainActive = true;
+
+    const page6 = document.getElementById('page6');
+    setInterval(() => {
+      if (state.currentPage !== 6) return;
+      const sparkle = document.createElement('div');
+      sparkle.className = 'sparkle-rain';
+      sparkle.style.left = Math.random() * 100 + '%';
+      sparkle.style.top = '-5px';
+      page6.appendChild(sparkle);
+
+      gsap.to(sparkle, {
+        y: window.innerHeight + 20,
+        opacity: 0.7,
+        duration: 2 + Math.random() * 2,
+        ease: 'none',
+        onComplete: () => sparkle.remove()
+      });
+      gsap.to(sparkle, {
+        opacity: 0, duration: 0.5,
+        delay: 1.5 + Math.random() * 2
+      });
+    }, 80);
+  }
+
+  // ============================================================
+  // CURSOR SPARKLES (Cover)
+  // ============================================================
+  document.addEventListener('mousemove', (e) => {
+    if (state.currentPage !== 0) return;
+    if (Math.random() > 0.3) return;
+
+    const sparkle = document.createElement('div');
+    sparkle.className = 'cursor-sparkle';
+    sparkle.style.left = e.clientX + 'px';
+    sparkle.style.top = e.clientY + 'px';
+    document.body.appendChild(sparkle);
+
+    gsap.to(sparkle, {
+      opacity: 0, scale: 0, y: -20 + Math.random() * 40,
+      x: (Math.random() - 0.5) * 30,
+      duration: 0.6,
+      onComplete: () => sparkle.remove()
+    });
+  });
+
+  // ============================================================
+  // OPEN BOOK
+  // ============================================================
+  window.App = {
+    openBook: function() {
+      if (state.bookOpened) return;
+      state.bookOpened = true;
+
+      // Ripple effect on button
+      const btn = document.querySelector('.open-btn');
+      const ripple = document.createElement('span');
+      ripple.className = 'ripple';
+      ripple.style.width = ripple.style.height = '40px';
+      ripple.style.left = '50%';
+      ripple.style.top = '50%';
+      ripple.style.marginLeft = '-20px';
+      ripple.style.marginTop = '-20px';
+      btn.appendChild(ripple);
+
+      setTimeout(() => {
+        state.isPlaying = true;
+        btnPlayPause.textContent = '⏸';
+        navUI.classList.add('visible');
+        autoplayUI.classList.add('visible');
+        initBgMusic();
+        goToPage(1);
+      }, 400);
+    }
+  };
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+
+    initThree();
+
+    // Hide loading screen
+    setTimeout(() => {
+      document.getElementById('loading').classList.add('hidden');
+      setTimeout(() => {
+        document.getElementById('loading').style.display = 'none';
+        triggerPageAnimation(0);
+      }, 800);
+    }, 1500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>
